@@ -1,7 +1,6 @@
 const PORTAL_BASE = 'https://if-portal.haw-landshut.de/public/raumplan';
 
 const CORS_PROXIES = [
-  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
   url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
 ];
 
