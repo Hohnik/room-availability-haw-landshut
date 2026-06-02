@@ -63,7 +63,7 @@ async function fetchViaProxy(url) {
   for (const proxy of CORS_PROXIES) {
     try {
       const ctrl = new AbortController();
-      setTimeout(() => ctrl.abort(), 5000);
+      setTimeout(() => ctrl.abort(), 8000);
       const res = await fetch(proxy(url), { signal: ctrl.signal });
       if (res.ok) return res.text();
     } catch (_) { }
