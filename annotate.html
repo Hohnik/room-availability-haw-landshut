@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Building Annotator – HAW Landshut</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1a1a2e; color: #e0e0e0; font-family: monospace; display: flex; height: 100vh; overflow: hidden; }
+
+  #sidebar {
+    width: 300px; flex-shrink: 0;
+    background: #16213e; border-right: 1px solid #0f3460;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  #sidebar h2 { padding: .75rem 1rem; font-size: .9rem; color: #e94560; border-bottom: 1px solid #0f3460; }
+
+  #bld-list { padding: .5rem; display: flex; flex-wrap: wrap; gap: .35rem; border-bottom: 1px solid #0f3460; }
+  #bld-list button {
+    background: #0f3460; border: 1px solid #1e5f74; color: #cce; border-radius: 4px;
+    padding: .25rem .55rem; font-size: .75rem; cursor: pointer;
+  }
+  #bld-list button.active { background: #e94560; border-color: #e94560; color: #fff; }
+  #bld-list button.done   { background: #1e8a4a; border-color: #1e8a4a; color: #fff; }
+
+  #controls {
+    padding: .6rem 1rem; font-size: .78rem; color: #aaa;
+    border-bottom: 1px solid #0f3460; line-height: 1.8;
+  }
+
+  #output {
+    flex: 1; overflow-y: auto; padding: .75rem 1rem;
+    font-size: .72rem; line-height: 1.5; white-space: pre-wrap;
+    color: #8eff8e;
+  }
+
+  #copy-btn {
+    margin: .5rem 1rem .75rem; padding: .4rem; background: #0f3460;
+    border: 1px solid #1e5f74; color: #cce; border-radius: 4px;
+    cursor: pointer; font-size: .78rem;
+  }
+  #copy-btn:hover { background: #1e5f74; }
+
+  #canvas-wrap { flex: 1; overflow: hidden; cursor: crosshair; position: relative; }
+  canvas { display: block; }
+
+  #coords { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,.7); color: #0f0; padding: 4px 8px; font-size: .78rem; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h2>Building Annotator</h2>
+  <div id="bld-list"></div>
+  <div id="controls">
+    <b>Active:</b> <span id="active-label">–</span><br>
+    <label style="cursor:pointer;user-select:none">
+      <input type="checkbox" id="label-mode"> Label-mode
+    </label><br>
+    <span id="mode-hint">Click = add point · Shift+Click = finish · Backspace = undo · Del = clear · Esc = deselect</span>
+  </div>
+  <div id="output"></div>
+  <button id="copy-btn">Copy all to clipboard</button>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="c"></canvas>
+  <div id="coords">x=0  y=0</div>
+</div>
+
+<script>
+const IMG_URL = 'https://www.haw-landshut.de/static/Allgemein/Hochschule/Anfahrt/2025_06_Campusplan___Legende.jpg';
+const MAP_H = 2350; // only show campus map, not legend
+
+const BUILDINGS = ['N','D','E','B','M','C','F','A','Z','R','G','H','J','K','L','T'];
+
+// Pre-filled label positions (null = use centroid)
+const EXISTING_LABELS = {
+  N: [1470,439],
+  D: [1136,730],
+  E: [1055,856],
+  B: [1530,1037],
+  M: [1893,992],
+  C: [1295,1328],
+  F: [1124,1178],
+  A: [1845,1304],
+  Z: [2410,1304],
+  R: [670,1512],
+  G: [1025,1578],
+  H: [1295,1515],
+  J: [1292,1722],
+  K: [1292,1890],
+  L: [950,1896],
+  T: [1148,2095],
+};
+
+// Pre-fill with current best-known polygons (kept in sync with script.js BUILDING_POLYS)
+const EXISTING = {
+  N: [[1341,393],[1587,393],[1587,494],[1554,494],[1554,480],[1501,480],[1494,700],[1541,700],[1541,807],[1467,807],[1467,667],[1434,667],[1441,487],[1341,487]],
+  D: [[954,794],[954,740],[1014,740],[1007,560],[1127,560],[1127,667],[1354,667],[1354,714],[1281,707],[1281,727],[1274,727],[1274,747],[1281,754],[1281,847],[1227,854],[1220,794]],
+  E: [[952,821],[1149,821],[1149,893],[952,893]],
+  B: [[1461,954],[1541,974],[1541,927],[1654,927],[1654,1000],[1621,1007],[1621,987],[1614,987],[1574,1120],[1434,1080]],
+  M: [[1730,897],[2042,897],[2042,1030],[1960,1157],[1730,1020]],
+  C: [[1234,907],[1294,907],[1294,894],[1334,894],[1334,1294],[1581,1294],[1581,1220],[1634,1220],[1667,1227],[1667,1381],[1427,1387],[1427,1407],[1314,1407],[1314,1394],[1234,1394],[1234,1314],[1220,1314],[1220,1214],[1241,1214],[1241,1167],[1220,1167],[1220,1047],[1234,1047]],
+  F: [[920,980],[1174,974],[1174,1354],[1160,1354],[1160,1394],[920,1394],[914,1347],[927,1347],[927,1287],[1080,1287],[1080,1234],[927,1234],[934,1134],[1080,1134],[1080,1080],[927,1080]],
+  A: [[1754,1227],[1927,1227],[1927,1379],[1754,1379]],
+  Z: [[2336,1252],[2479,1252],[2479,1354],[2337,1354]],
+  R: [[567,1454],[774,1454],[774,1487],[714,1487],[714,1521],[727,1521],[727,1567],[614,1567],[614,1487],[567,1487]],
+  G: [[1127,1667],[1107,1667],[1100,1727],[1054,1727],[1054,1754],[947,1754],[947,1727],[900,1727],[900,1427],[1054,1427],[1054,1447],[1160,1447],[1160,1461],[1241,1461],[1241,1514],[1140,1514],[1140,1534],[1194,1534],[1200,1627],[1127,1634]],
+  H: [[1241,1461],[1514,1447],[1514,1607],[1407,1601],[1401,1534],[1347,1534],[1347,1601],[1241,1607]],
+  J: [[1461,1781],[1514,1781],[1507,1674],[1107,1674],[1100,1781]],
+  K: [[1074,1834],[1507,1834],[1514,1947],[1074,1947]],
+  L: [[867,1847],[1034,1847],[1034,1941],[1020,1941],[1020,1967],[980,1967],[980,1947],[847,1941],[847,1894],[880,1894],[880,1881],[867,1881]],
+  T: [[1093,2040],[1199,2040],[1199,2158],[1093,2158]],
+};
+
+const polys  = {};  // name → [[x,y],...]
+const wip    = {};  // name → current WIP points
+const labels = {};  // name → [x,y] or null (null = centroid)
+let current  = null;
+let scale    = 1;
+let imgW = 2481, imgH = MAP_H;
+
+// Initialize polys and labels from EXISTING
+BUILDINGS.forEach(b => {
+  polys[b]  = EXISTING[b] ? EXISTING[b].map(p=>[...p]) : [];
+  labels[b] = EXISTING_LABELS[b] ? [...EXISTING_LABELS[b]] : null;
+});
+
+const labelModeChk = document.getElementById('label-mode');
+const modeHint     = document.getElementById('mode-hint');
+labelModeChk.addEventListener('change', () => {
+  modeHint.textContent = labelModeChk.checked
+    ? 'Click = place label for current building'
+    : 'Click = add point · Shift+Click = finish · Backspace = undo · Del = clear · Esc = deselect';
+});
+
+// UI
+const bldList = document.getElementById('bld-list');
+BUILDINGS.forEach(b => {
+  const btn = document.createElement('button');
+  btn.textContent = b; btn.id = 'btn-' + b;
+  btn.addEventListener('click', () => selectBuilding(b));
+  bldList.appendChild(btn);
+});
+
+function selectBuilding(b) {
+  current = b;
+  if (!wip[b]) wip[b] = [];
+  document.querySelectorAll('#bld-list button').forEach(el => el.classList.remove('active'));
+  const btn = document.getElementById('btn-' + b);
+  if (btn) btn.classList.add('active');
+  document.getElementById('active-label').textContent = b;
+  draw();
+}
+
+// Canvas
+const wrap   = document.getElementById('canvas-wrap');
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+const img    = new Image();
+img.src = IMG_URL;
+
+function resize() {
+  const w = wrap.clientWidth; const h = wrap.clientHeight;
+  scale = Math.min(w / imgW, h / imgH);
+  canvas.width  = imgW * scale;
+  canvas.height = imgH * scale;
+  draw();
+}
+
+img.onload = () => { imgW = img.width; resize(); };
+window.addEventListener('resize', resize);
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // Draw cropped map portion
+  ctx.drawImage(img, 0, 0, imgW, imgH, 0, 0, imgW*scale, imgH*scale);
+
+  // Completed polygons
+  BUILDINGS.forEach(b => {
+    const pts = polys[b];
+    if (!pts || pts.length < 2) return;
+    ctx.beginPath();
+    pts.forEach((p, i) => i===0 ? ctx.moveTo(p[0]*scale, p[1]*scale) : ctx.lineTo(p[0]*scale, p[1]*scale));
+    ctx.closePath();
+    ctx.fillStyle   = b === current ? 'rgba(0,200,100,.25)' : 'rgba(100,160,220,.2)';
+    ctx.strokeStyle = b === current ? '#00ff88' : '#5599cc';
+    ctx.lineWidth   = 2;
+    ctx.fill(); ctx.stroke();
+    // Label – use stored position or centroid fallback
+    const lp = labels[b];
+    const cx = lp ? lp[0]*scale : pts.reduce((s,p)=>s+p[0],0)/pts.length * scale;
+    const cy = lp ? lp[1]*scale : pts.reduce((s,p)=>s+p[1],0)/pts.length * scale;
+    ctx.fillStyle = lp ? '#ffdd44' : '#fff';
+    ctx.font = 'bold 13px monospace';
+    ctx.fillText(b, cx-5, cy+5);
+  });
+
+  // WIP polygon for current building
+  const wipPts = wip[current] || [];
+  if (wipPts.length > 0) {
+    ctx.beginPath();
+    wipPts.forEach((p, i) => i===0 ? ctx.moveTo(p[0]*scale, p[1]*scale) : ctx.lineTo(p[0]*scale, p[1]*scale));
+    ctx.strokeStyle = '#ff4444'; ctx.lineWidth = 2; ctx.stroke();
+    wipPts.forEach(p => {
+      ctx.fillStyle = '#ff4444';
+      ctx.fillRect(p[0]*scale-3, p[1]*scale-3, 6, 6);
+    });
+  }
+}
+
+canvas.addEventListener('mousemove', e => {
+  const x = Math.round(e.offsetX / scale);
+  const y = Math.round(e.offsetY / scale);
+  document.getElementById('coords').textContent = `x=${x}  y=${y}`;
+});
+
+canvas.addEventListener('click', e => {
+  if (!current) return;
+  const x = Math.round(e.offsetX / scale);
+  const y = Math.round(e.offsetY / scale);
+
+  if (labelModeChk.checked) {
+    labels[current] = [x, y];
+    updateOutput();
+    draw();
+    return;
+  }
+
+  if (e.shiftKey) {
+    // Finish polygon
+    if ((wip[current] || []).length >= 3) {
+      polys[current] = [...(wip[current] || [])];
+      wip[current] = [];
+      const btn = document.getElementById('btn-' + current);
+      if (btn) { btn.classList.remove('active'); btn.classList.add('done'); }
+      updateOutput();
+    }
+  } else {
+    if (!wip[current]) wip[current] = [];
+    wip[current].push([x, y]);
+    updateOutput();
+  }
+  draw();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Backspace') {
+    if (wip[current] && wip[current].length > 0) {
+      wip[current].pop(); draw();
+    }
+  } else if (e.key === 'Delete') {
+    if (current) { wip[current] = []; draw(); }
+  } else if (e.key === 'Escape') {
+    current = null;
+    document.querySelectorAll('#bld-list button').forEach(el => el.classList.remove('active'));
+    document.getElementById('active-label').textContent = '–';
+    draw();
+  }
+});
+
+function updateOutput() {
+  const polyLines = ['const BUILDING_POLYS = {'];
+  BUILDINGS.forEach(b => {
+    const pts = polys[b];
+    if (pts && pts.length >= 3) {
+      const str = pts.map(p=>`[${p[0]},${p[1]}]`).join(',');
+      polyLines.push(`  ${b}: [${str}],`);
+    }
+  });
+  polyLines.push('};');
+
+  const labelLines = ['const BUILDING_LABEL_POS = {'];
+  BUILDINGS.forEach(b => {
+    if (labels[b]) labelLines.push(`  ${b}: [${labels[b][0]},${labels[b][1]}],`);
+  });
+  labelLines.push('};');
+
+  document.getElementById('output').textContent = polyLines.join('\n') + '\n\n' + labelLines.join('\n');
+}
+
+document.getElementById('copy-btn').addEventListener('click', () => {
+  updateOutput();
+  navigator.clipboard.writeText(document.getElementById('output').textContent)
+    .then(() => alert('Copied to clipboard!'));
+});
+
+updateOutput();
+</script>
+</body>
+</html>
