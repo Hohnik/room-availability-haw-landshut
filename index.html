@@ -1,62 +1,60 @@
 <!DOCTYPE html>
 <html lang="de">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Raumverfügbarkeit – HAW Landshut</title>
-	<link rel="stylesheet" href="style.css">
-</head>
-<body>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Raumverfügbarkeit – HAW Landshut</title>
+		<link rel="stylesheet" href="style.css">
+	</head>
+	<body>
 
-<header>
-	<div class="header-inner">
-		<h1>Raumverfügbarkeit</h1>
-		<p class="subtitle">Hochschule für angewandte Wissenschaften Landshut</p>
-	</div>
-</header>
-
-<main>
-	<section class="map-section" id="map-section">
-		<h2>Gebäude wählen</h2>
-		<div class="map-container">
-			<svg class="campus-floorplan" id="map-overlay"
-			     viewBox="547 373 1952 1805"
-			     xmlns="http://www.w3.org/2000/svg"
-			     aria-label="Campusplan HAW Landshut"></svg>
-			<div class="map-tooltip hidden" id="map-tooltip">
-				<strong id="tooltip-label"></strong>
-				<span id="tooltip-desc"></span>
+		<header>
+			<div class="header-inner">
+				<h1>Raumverfügbarkeit</h1>
+				<p class="subtitle">Hochschule für angewandte Wissenschaften Landshut</p>
 			</div>
-		</div>
-	</section>
+		</header>
 
-	<section class="selector-section hidden" id="room-section">
-		<div class="section-header">
-			<h2>Raum wählen – <span id="selected-building-label"></span></h2>
-			<button class="back-btn" id="back-to-buildings">← Karte</button>
-		</div>
-		<div class="room-grid" id="room-grid"></div>
-	</section>
+		<main>
+			<section class="map-section" id="map-section">
+				<h2>Gebäude wählen</h2>
+				<div class="map-container">
+					<svg class="campus-floorplan" id="map-overlay" viewBox="547 373 1952 1805" xmlns="http://www.w3.org/2000/svg" aria-label="Campusplan HAW Landshut"></svg>
+					<div class="map-tooltip hidden" id="map-tooltip">
+						<strong id="tooltip-label"></strong>
+						<span id="tooltip-desc"></span>
+					</div>
+				</div>
+			</section>
 
-	<section class="availability-section hidden" id="availability-section">
-		<div class="section-header">
-			<h2>Verfügbarkeit – <span id="selected-room-label"></span></h2>
-			<button class="back-btn" id="back-to-rooms">← Räume</button>
-		</div>
-		<div class="day-nav">
-			<button class="nav-btn" id="prev-day" aria-label="Vorheriger Tag">‹</button>
-			<span class="day-label" id="day-label"></span>
-			<button class="nav-btn" id="next-day" aria-label="Nächster Tag">›</button>
-		</div>
-		<div class="status-badge" id="status-badge"></div>
-		<div class="timeline" id="timeline"></div>
-	</section>
-</main>
+			<section class="selector-section hidden" id="room-section">
+				<div class="section-header">
+					<h2>Raum wählen – <span id="selected-building-label"></span></h2>
+					<button class="back-btn" id="back-to-buildings">← Karte</button>
+				</div>
+				<div class="room-grid" id="room-grid"></div>
+			</section>
 
-<footer>
-	<p>Daten von <a href="https://if-portal.haw-landshut.de/public/raumplan/" target="_blank" rel="noopener">if-portal.haw-landshut.de</a></p>
-</footer>
+			<section class="availability-section hidden" id="availability-section">
+				<div class="section-header">
+					<h2>Verfügbarkeit – <span id="selected-room-label"></span></h2>
+					<button class="back-btn" id="back-to-rooms">← Räume</button>
+				</div>
+				<div class="day-nav">
+					<button class="nav-btn" id="prev-day" aria-label="Vorheriger Tag">‹</button>
+					<span class="day-label" id="day-label"></span>
+					<button class="nav-btn" id="next-day" aria-label="Nächster Tag">›</button>
+				</div>
+				<div class="status-badge" id="status-badge"></div>
+				<div class="timeline" id="timeline"></div>
+			</section>
+		</main>
 
-<script src="script.js"></script>
-</body>
+		<footer>
+			<p>Made by <a href="https://github.com/Hohnik" target="_blank" rel="noopener">Niklas Hohn</a></p>
+			<p>Feedback to <a href="mailto:mail@niklashohn.com">mail@niklashohn.com</a></p>
+		</footer>
+
+		<script src="script.js"></script>
+	</body>
 </html>
