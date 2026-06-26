@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json, re, os, urllib.request, urllib.parse
 from datetime import datetime, timezone, timedelta
+from concurrent.futures import ThreadPoolExecutor
 
 with open('script.js') as f:
     ROOMS = json.loads(re.search(r'const ROOMS = (\[.*?\]);', f.read(), re.DOTALL).group(1))
@@ -44,13 +45,14 @@ window_start = mon.replace(hour=0, minute=0, second=0, microsecond=0)
 window_end = window_start + timedelta(days=14)
 ws, we = window_start.isoformat()[:10], window_end.isoformat()[:10]
 
-result = {}
-for room in ROOMS:
+def process(room):
     ics = fetch_ics(room)
     if not ics:
-        continue
-    events = [e for e in parse_ics(ics) if e['end'][:10] >= ws and e['start'][:10] <= we]
-    result[room] = events
+        return room, None
+    return room, [e for e in parse_ics(ics) if e['end'][:10] >= ws and e['start'][:10] <= we]
+
+with ThreadPoolExecutor(max_workers=20) as ex:
+    result = {room: evs for room, evs in ex.map(process, ROOMS) if evs is not None}
 
 os.makedirs('data', exist_ok=True)
 with open('data/events.json', 'w') as f:
