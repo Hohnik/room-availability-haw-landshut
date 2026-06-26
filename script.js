@@ -151,7 +151,7 @@ function initMap() {
   const svg = $('map-overlay');
   const tooltip = $('map-tooltip');
   const NS = 'http://www.w3.org/2000/svg';
-  const available = new Set(rooms.map(buildingOf));
+  const available = new Set(ROOMS.map(buildingOf));
 
   BUILDINGS.forEach(building => {
     const points = BUILDING_POLYS[building.id];
@@ -286,8 +286,8 @@ function selectBuilding(buildingId) {
   preloadReady.then(() => {
     const now = new Date();
     buildingRooms.forEach(r => {
+      if (!(r in preloadedEvents)) return;
       const evs = preloadedEvents[r];
-      if (!evs) return;
       const btn = grid.querySelector(`[data-room="${CSS.escape(r)}"]`);
       if (btn) btn.dataset.status = evs.some(e => new Date(e.start) <= now && new Date(e.end) > now) ? 'busy' : 'free';
     });
@@ -364,10 +364,9 @@ function renderWeek(events) {
     }).join('');
 
     const label = day.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
-    const eventsSummary = dayEvents.length
+    const eventsHtml = dayEvents.length
       ? dayEvents.map(e => `${fmtTime(e.start)}–${fmtTime(e.end)}`).join(' · ')
-      : 'Keine Belegungen';
-    const eventsHtml = dayEvents.length ? eventsSummary : '<span class="week-no-events">Keine Belegungen</span>';
+      : '<span class="week-no-events">Keine Belegungen</span>';
 
     if (!isToday) {
       return `
