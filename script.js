@@ -54,7 +54,6 @@ const BUILDINGS = [
 ];
 
 /* ── State ─────────────────────────────────────────────────────── */
-const rooms = ROOMS;
 let selectedRoom = null;
 let selectedBuilding = null;
 
@@ -76,7 +75,7 @@ const fmtTime = d => d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2
 /* ── Fetch ─────────────────────────────────────────────────────── */
 async function fetchRoomEvents(r) {
   await preloadReady;
-  if (preloadedEvents[r])
+  if (r in preloadedEvents)
     return preloadedEvents[r].map(e => ({ ...e, start: new Date(e.start), end: new Date(e.end) }));
   for (const name of [`SS26_${r}`, r, `SS26_${r}_`]) {
     try { return parseICS(await fetchViaProxy(`${PORTAL_BASE}/ics/de/${name}.ics`)); }
@@ -99,6 +98,13 @@ async function fetchViaProxy(url) {
 }
 
 /* ── ICS parser ────────────────────────────────────────────────── */
+const parseDate = s => {
+  if (!s) return null;
+  const [y, mo, d, h, mi, sc] = [+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +s.slice(9, 11), +s.slice(11, 13), +s.slice(13, 15)];
+  return s.endsWith('Z') ? new Date(Date.UTC(y, mo, d, h, mi, sc)) : new Date(y, mo, d, h, mi, sc);
+};
+const dedup = s => { const h = Math.floor(s.length / 2), a = s.slice(0, h).trim(); return s.slice(h).trim().startsWith(a) ? a : s; };
+
 function parseICS(text) {
   const events = [];
   for (const block of text.split('BEGIN:VEVENT').slice(1)) {
@@ -106,12 +112,6 @@ function parseICS(text) {
       const m = block.match(new RegExp(`${key}[^:]*:([^\\r\\n]+(?:\\r?\\n[ \\t][^\\r\\n]+)*)`));
       return m ? m[1].replace(/\r?\n[ \t]/g, '').trim() : '';
     };
-    const parseDate = s => {
-      if (!s) return null;
-      const [y, mo, d, h, mi, sc] = [+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +s.slice(9, 11), +s.slice(11, 13), +s.slice(13, 15)];
-      return s.endsWith('Z') ? new Date(Date.UTC(y, mo, d, h, mi, sc)) : new Date(y, mo, d, h, mi, sc);
-    };
-    const dedup = s => { const h = Math.floor(s.length / 2), a = s.slice(0, h).trim(); return s.slice(h).trim().startsWith(a) ? a : s; };
     const start = parseDate(get('DTSTART'));
     const end = parseDate(get('DTEND'));
     if (start && end) events.push({ start, end, title: dedup(get('SUMMARY')) });
@@ -234,9 +234,6 @@ async function fetchFavoriteStatus(r) {
   renderFavorites();
 }
 
-function loadFavoriteStatuses() {
-  Promise.allSettled([...favorites].map(fetchFavoriteStatus));
-}
 
 function triggerFavorite(btn, r) {
   const rect = btn.getBoundingClientRect();
@@ -278,7 +275,7 @@ function selectBuilding(buildingId) {
   );
 
   const building = BUILDINGS.find(b => b.id === buildingId);
-  const buildingRooms = rooms.filter(r => buildingOf(r) === buildingId).sort();
+  const buildingRooms = ROOMS.filter(r => buildingOf(r) === buildingId).sort();
 
   $('selected-building-label').textContent = building?.label ?? `Gebäude ${buildingId}`;
 
@@ -417,10 +414,8 @@ function renderWeek(events) {
 /* ── Init ──────────────────────────────────────────────────────── */
 initMap();
 renderFavorites();
-loadFavoriteStatuses();
+Promise.allSettled([...favorites].map(fetchFavoriteStatus));
 
-(function restoreFromHash() {
-  const [bld, room] = location.hash.slice(1).split('/');
-  if (bld) selectBuilding(decodeURIComponent(bld));
-  if (room) selectRoom(decodeURIComponent(room));
-})();
+const [bld, room] = location.hash.slice(1).split('/');
+if (bld) selectBuilding(decodeURIComponent(bld));
+if (room) selectRoom(decodeURIComponent(room));
