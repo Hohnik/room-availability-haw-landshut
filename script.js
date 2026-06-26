@@ -54,19 +54,46 @@ const BUILDINGS = [
 ];
 
 /* ── State ─────────────────────────────────────────────────────── */
-let rooms = ROOMS;
+const rooms = ROOMS;
 let selectedRoom = null;
-let dayOffset = 0;
+let selectedBuilding = null;
+
+/* ── Favorites ─────────────────────────────────────────────────── */
+const favorites = new Set(JSON.parse(localStorage.getItem('fav') || '[]'));
+const saveFavorites = () => localStorage.setItem('fav', JSON.stringify([...favorites]));
+const statusCache = new Map();
+
+/* ── Preloaded events (from GitHub Action daily build) ─────────── */
+let preloadedEvents = {};
+const preloadReady = fetch('data/events.json')
+  .then(r => r.ok ? r.json() : null)
+  .then(d => { if (d?.events) preloadedEvents = d.events; })
+  .catch(() => {});
+
+/* ── Shared formatter ──────────────────────────────────────────── */
+const fmtTime = d => d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
 /* ── Fetch ─────────────────────────────────────────────────────── */
+async function fetchRoomEvents(r) {
+  await preloadReady;
+  if (preloadedEvents[r])
+    return preloadedEvents[r].map(e => ({ ...e, start: new Date(e.start), end: new Date(e.end) }));
+  for (const name of [`SS26_${r}`, r, `SS26_${r}_`]) {
+    try { return parseICS(await fetchViaProxy(`${PORTAL_BASE}/ics/de/${name}.ics`)); }
+    catch (_) {}
+  }
+  return null;
+}
+
 async function fetchViaProxy(url) {
   for (const proxy of CORS_PROXIES) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
     try {
-      const ctrl = new AbortController();
-      setTimeout(() => ctrl.abort(), 8000);
       const res = await fetch(proxy(url), { signal: ctrl.signal });
+      clearTimeout(t);
       if (res.ok) return res.text();
-    } catch (_) { }
+    } catch (_) { clearTimeout(t); }
   }
   throw new Error(`fetch failed: ${url}`);
 }
@@ -93,14 +120,9 @@ function parseICS(text) {
 }
 
 /* ── Date helpers ──────────────────────────────────────────────── */
-const sameDay = (a, b) =>
-  a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-
 function eventsForDay(events, day) {
   const nextDay = new Date(day.getTime() + 86400000);
-  return events
-    .filter(e => sameDay(e.start, day) || sameDay(e.end, day) || (e.start <= day && e.end >= nextDay))
-    .sort((a, b) => a.start - b.start);
+  return events.filter(e => e.start < nextDay && e.end > day).sort((a, b) => a.start - b.start);
 }
 
 /* ── Building from room code ───────────────────────────────────── */
@@ -116,6 +138,13 @@ function buildingOf(room) {
 const $ = id => document.getElementById(id);
 const show = id => $(id).classList.remove('hidden');
 const hide = id => $(id).classList.add('hidden');
+
+/* ── Hash state ────────────────────────────────────────────────── */
+const updateHash = () => {
+  location.hash = selectedRoom
+    ? `${selectedBuilding}/${encodeURIComponent(selectedRoom)}`
+    : (selectedBuilding ?? '');
+};
 
 /* ── Map overlay ───────────────────────────────────────────────── */
 function initMap() {
@@ -171,10 +200,78 @@ function initMap() {
   }
 }
 
+/* ── Room button ───────────────────────────────────────────────── */
+function makeRoomBtn(r) {
+  const btn = document.createElement('button');
+  btn.className = 'room-btn';
+  btn.dataset.room = r;
+  btn.textContent = r;
+
+  let pressTimer = null;
+  let longPressed = false;
+  const cancelPress = () => { clearTimeout(pressTimer); btn.classList.remove('shaking'); };
+
+  btn.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    longPressed = false;
+    btn.classList.add('shaking');
+    pressTimer = setTimeout(() => { longPressed = true; cancelPress(); triggerFavorite(btn, r); }, 1000);
+  });
+  btn.addEventListener('pointerup', cancelPress);
+  btn.addEventListener('pointerleave', cancelPress);
+  btn.addEventListener('pointercancel', cancelPress);
+  btn.addEventListener('contextmenu', e => e.preventDefault());
+  btn.addEventListener('click', () => { if (longPressed) { longPressed = false; return; } selectRoom(r); });
+  return btn;
+}
+
+/* ── Favorite trigger ──────────────────────────────────────────── */
+async function fetchFavoriteStatus(r) {
+  const events = await fetchRoomEvents(r);
+  if (!events) return;
+  const now = new Date();
+  statusCache.set(r, events.some(e => e.start <= now && e.end > now) ? 'busy' : 'free');
+  renderFavorites();
+}
+
+function loadFavoriteStatuses() {
+  Promise.allSettled([...favorites].map(fetchFavoriteStatus));
+}
+
+function triggerFavorite(btn, r) {
+  const rect = btn.getBoundingClientRect();
+
+  const adding = !favorites.has(r);
+  adding ? favorites.add(r) : favorites.delete(r);
+  saveFavorites();
+  if (adding) fetchFavoriteStatus(r);
+  renderFavorites();
+  const heart = Object.assign(document.createElement('span'), { textContent: '♥' });
+  heart.style.cssText = `position:fixed;left:${rect.left + rect.width / 2}px;top:${rect.top + rect.height / 2}px;transform:translate(-50%,-50%);font-size:2rem;color:#e11d48;pointer-events:none;z-index:9999;`;
+  document.body.appendChild(heart);
+  heart.animate(
+    [{ opacity: 1, transform: 'translate(-50%,-50%) scale(1)' }, { opacity: 0, transform: 'translate(-50%,-110%) scale(1.4)' }],
+    { duration: 700, easing: 'ease-out', fill: 'forwards' }
+  ).onfinish = () => heart.remove();
+}
+
+/* ── Favorites panel ───────────────────────────────────────────── */
+function renderFavorites() {
+  const grid = $('favorites-grid');
+  grid.innerHTML = '';
+  [...favorites].sort().forEach(r => {
+    const btn = makeRoomBtn(r);
+    const status = statusCache.get(r);
+    if (status) btn.dataset.status = status;
+    grid.appendChild(btn);
+  });
+  $('favorites-section').classList.toggle('hidden', favorites.size === 0);
+}
+
 /* ── Select building ───────────────────────────────────────────── */
 function selectBuilding(buildingId) {
   selectedRoom = null;
-  dayOffset = 0;
+  selectedBuilding = buildingId;
 
   document.querySelectorAll('.building-area').forEach(g =>
     g.classList.toggle('active', g.dataset.building === buildingId)
@@ -184,10 +281,22 @@ function selectBuilding(buildingId) {
   const buildingRooms = rooms.filter(r => buildingOf(r) === buildingId).sort();
 
   $('selected-building-label').textContent = building?.label ?? `Gebäude ${buildingId}`;
-  $('room-grid').innerHTML = buildingRooms.map(r =>
-    `<button class="room-btn" onclick="selectRoom('${r}')">${r}</button>`
-  ).join('');
 
+  const grid = $('room-grid');
+  grid.innerHTML = '';
+  buildingRooms.forEach(r => grid.appendChild(makeRoomBtn(r)));
+
+  preloadReady.then(() => {
+    const now = new Date();
+    buildingRooms.forEach(r => {
+      const evs = preloadedEvents[r];
+      if (!evs) return;
+      const btn = grid.querySelector(`[data-room="${CSS.escape(r)}"]`);
+      if (btn) btn.dataset.status = evs.some(e => new Date(e.start) <= now && new Date(e.end) > now) ? 'busy' : 'free';
+    });
+  });
+
+  updateHash();
   hide('availability-section');
   show('room-section');
   $('room-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -196,10 +305,10 @@ function selectBuilding(buildingId) {
 /* ── Select room ───────────────────────────────────────────────── */
 async function selectRoom(room) {
   selectedRoom = room;
-  dayOffset = 0;
+  selectedBuilding = selectedBuilding ?? buildingOf(room);
 
   document.querySelectorAll('.room-btn').forEach(b =>
-    b.classList.toggle('active', b.textContent === room)
+    b.classList.toggle('active', b.dataset.room === room)
   );
 
   $('selected-room-label').textContent = room;
@@ -211,92 +320,107 @@ async function selectRoom(room) {
 
 /* ── Load availability ─────────────────────────────────────────── */
 async function loadAvailability() {
-  $('timeline').innerHTML = '<div class="loading-spinner">Lädt Belegung…</div>';
-  $('status-badge').className = 'status-badge';
-  $('status-badge').innerHTML = '';
+  const wv = $('week-view');
+  wv.style.minHeight = wv.offsetHeight + 'px';
+  wv.innerHTML = '<div class="loading-spinner">Lädt Belegung…</div>';
 
-  const day = new Date();
-  day.setHours(0, 0, 0, 0);
-  day.setDate(day.getDate() + dayOffset);
-  $('day-label').textContent = day.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  updateHash();
 
-  let events;
-  for (const name of [`SS26_${selectedRoom}`, selectedRoom, `SS26_${selectedRoom}_`]) {
-    try { events = parseICS(await fetchViaProxy(`${PORTAL_BASE}/ics/de/${name}.ics`)); break; }
-    catch (_) { }
-  }
+  const events = await fetchRoomEvents(selectedRoom);
 
   if (!events) {
-    $('timeline').innerHTML = '<p class="no-events">Belegungsdaten konnten nicht geladen werden.</p>';
+    wv.innerHTML = '<p class="no-events">Belegungsdaten konnten nicht geladen werden.</p>';
+    wv.style.minHeight = '';
     return;
   }
 
-  const dayEvents = eventsForDay(events, day);
-  renderTimeline(dayEvents);
-  renderStatusBadge(dayEvents);
+  renderWeek(events);
+  wv.style.minHeight = '';
 }
 
-/* ── Timeline ──────────────────────────────────────────────────── */
-function renderTimeline(events) {
-  const totalMin = (HOUR_END - HOUR_START) * 60;
-  const pct = (min, base = totalMin) => (min / base * 100).toFixed(2);
-
-  const ticks = [];
-  for (let h = HOUR_START; h <= HOUR_END; h += 2)
-    ticks.push(`<span class="time-tick" data-h="${h}">${String(h).padStart(2, '0')}:00</span>`);
-
-  const slots = [];
-  let prev = 0;
-  for (const e of events) {
-    const s = Math.max((e.start.getHours() - HOUR_START) * 60 + e.start.getMinutes(), 0);
-    const end = Math.min((e.end.getHours() - HOUR_START) * 60 + e.end.getMinutes(), totalMin);
-    if (end <= 0 || s >= totalMin) continue;
-    slots.push(`<div class="time-slot busy" style="left:${pct(s)}%;width:${pct(end - s)}%" title="${e.title}"></div>`);
-    prev = end;
-  }
-
-  const fmt = d => d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-  const cards = events.map(e => `
-    <div class="event-card">
-      <div class="event-time">${fmt(e.start)} – ${fmt(e.end)}</div>
-      <div class="event-title">${e.title}</div>
-    </div>`).join('');
-
-  $('timeline').innerHTML = `
-    <div class="time-axis">${ticks.join('')}</div>
-    <div class="timeline-track">${slots.join('')}</div>
-    <div class="event-list">${events.length ? cards : '<p class="no-events">Keine Belegungen an diesem Tag</p>'}</div>`;
-}
-
-/* ── Status badge ──────────────────────────────────────────────── */
-function renderStatusBadge(events) {
+/* ── Week view ─────────────────────────────────────────────────── */
+function renderWeek(events) {
   const now = new Date();
-  const fmt = d => d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-  const active = events.find(e => e.start <= now && e.end > now);
-  const next = events.find(e => e.start > now);
-  const busy = !!active;
-  const text = active ? `Belegt bis ${fmt(active.end)}`
-    : next ? `Frei · nächste Belegung ${fmt(next.start)}`
-      : 'Frei – keine weiteren Belegungen heute';
-  $('status-badge').className = `status-badge ${busy ? 'busy' : 'free'}`;
-  $('status-badge').innerHTML = `<span class="status-dot"></span> ${text}`;
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 1));
+
+  const totalMin = (HOUR_END - HOUR_START) * 60;
+  const pct = min => (min / totalMin * 100).toFixed(2);
+  const ticks = Array.from({ length: (HOUR_END - HOUR_START) / 2 + 1 }, (_, i) => {
+    const h = HOUR_START + i * 2;
+    return `<span class="time-tick" data-h="${h}">${String(h).padStart(2, '0')}:00</span>`;
+  }).join('');
+
+  $('week-view').innerHTML = Array.from({ length: 7 }, (_, i) => {
+    const day = new Date(monday);
+    day.setDate(monday.getDate() + i);
+    const isToday = day.getTime() === today.getTime();
+    const dayEvents = eventsForDay(events, day);
+
+    const slots = dayEvents.flatMap(e => {
+      const s = Math.max((e.start.getHours() - HOUR_START) * 60 + e.start.getMinutes(), 0);
+      const end = Math.min((e.end.getHours() - HOUR_START) * 60 + e.end.getMinutes(), totalMin);
+      if (end <= 0 || s >= totalMin) return [];
+      return [`<div class="time-slot busy" style="left:${pct(s)}%;width:${pct(end - s)}%" title="${e.title}"></div>`];
+    }).join('');
+
+    const label = day.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
+    const eventsSummary = dayEvents.length
+      ? dayEvents.map(e => `${fmtTime(e.start)}–${fmtTime(e.end)}`).join(' · ')
+      : 'Keine Belegungen';
+    const eventsHtml = dayEvents.length ? eventsSummary : '<span class="week-no-events">Keine Belegungen</span>';
+
+    if (!isToday) {
+      return `
+        <div class="week-day week-day--collapsed">
+          <div class="week-day-header week-day-header--toggle">
+            <span class="week-day-chevron">▶</span>
+            <span class="week-day-label">${label}</span>
+          </div>
+          <div class="time-axis">${ticks}</div>
+          <div class="timeline-track">${slots}</div>
+          <p class="week-day-events">${eventsHtml}</p>
+        </div>`;
+    }
+
+    const active = dayEvents.find(e => e.start <= now && e.end > now);
+    const next = dayEvents.find(e => e.start > now);
+    const statusHtml = `<span class="week-status ${active ? 'busy' : 'free'}">${
+      active ? `Belegt bis ${fmtTime(active.end)}`
+      : next ? `Frei · nächste ${fmtTime(next.start)}`
+      : 'Frei'
+    }</span>`;
+    const nowMin = (now.getHours() - HOUR_START) * 60 + now.getMinutes() + now.getSeconds() / 60;
+    const nowIndicator = nowMin > 0 && nowMin < totalMin
+      ? `<div class="time-now" style="left:${pct(nowMin)}%;animation-duration:${Math.round((totalMin - nowMin) * 60)}s"></div>`
+      : '';
+
+    return `
+      <div class="week-day week-day--today">
+        <div class="week-day-header">
+          <span class="week-day-label">${label}</span>
+          ${statusHtml}
+        </div>
+        <div class="time-axis">${ticks}</div>
+        <div class="timeline-track">${slots}${nowIndicator}</div>
+        <p class="week-day-events">${eventsHtml}</p>
+      </div>`;
+  }).join('');
+
+  $('week-view').querySelectorAll('.week-day-header--toggle').forEach(h =>
+    h.addEventListener('click', () => h.closest('.week-day').classList.toggle('week-day--collapsed'))
+  );
 }
-
-/* ── Navigation ────────────────────────────────────────────────── */
-$('prev-day').addEventListener('click', () => { dayOffset--; loadAvailability(); });
-$('next-day').addEventListener('click', () => { dayOffset++; loadAvailability(); });
-
-$('back-to-buildings').addEventListener('click', () => {
-  hide('room-section');
-  hide('availability-section');
-  document.querySelectorAll('.building-area').forEach(g => g.classList.remove('active'));
-  $('map-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-});
-
-$('back-to-rooms').addEventListener('click', () => {
-  hide('availability-section');
-  $('room-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-});
 
 /* ── Init ──────────────────────────────────────────────────────── */
 initMap();
+renderFavorites();
+loadFavoriteStatuses();
+
+(function restoreFromHash() {
+  const [bld, room] = location.hash.slice(1).split('/');
+  if (bld) selectBuilding(decodeURIComponent(bld));
+  if (room) selectRoom(decodeURIComponent(room));
+})();

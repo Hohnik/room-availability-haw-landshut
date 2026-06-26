@@ -3,6 +3,9 @@
 	<head>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta name="description" content="Raumverfügbarkeit an der HAW Landshut – Räume belegt oder frei?">
+		<meta name="theme-color" content="#003366">
+		<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'><text y='1em' font-size='1'>🏛</text></svg>">
 		<title>Raumverfügbarkeit – HAW Landshut</title>
 		<link rel="stylesheet" href="style.css">
 	</head>
@@ -16,6 +19,11 @@
 		</header>
 
 		<main>
+			<section class="favorites-section hidden" id="favorites-section">
+				<h2>Favoriten</h2>
+				<div class="room-grid" id="favorites-grid"></div>
+			</section>
+
 			<section class="map-section" id="map-section">
 				<h2>Gebäude wählen</h2>
 				<div class="map-container">
@@ -28,25 +36,14 @@
 			</section>
 
 			<section class="selector-section hidden" id="room-section">
-				<div class="section-header">
-					<h2>Raum wählen – <span id="selected-building-label"></span></h2>
-					<button class="back-btn" id="back-to-buildings">← Karte</button>
-				</div>
+				<h2>Raum wählen – <span id="selected-building-label"></span></h2>
 				<div class="room-grid" id="room-grid"></div>
+				<p class="tip">Raum gedrückt halten, um ihn als Favorit zu speichern</p>
 			</section>
 
 			<section class="availability-section hidden" id="availability-section">
-				<div class="section-header">
-					<h2>Verfügbarkeit – <span id="selected-room-label"></span></h2>
-					<button class="back-btn" id="back-to-rooms">← Räume</button>
-				</div>
-				<div class="day-nav">
-					<button class="nav-btn" id="prev-day" aria-label="Vorheriger Tag">‹</button>
-					<span class="day-label" id="day-label"></span>
-					<button class="nav-btn" id="next-day" aria-label="Nächster Tag">›</button>
-				</div>
-				<div class="status-badge" id="status-badge"></div>
-				<div class="timeline" id="timeline"></div>
+				<h2>Verfügbarkeit – <span id="selected-room-label"></span></h2>
+				<div id="week-view"></div>
 			</section>
 		</main>
 
