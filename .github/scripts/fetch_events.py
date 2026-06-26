@@ -9,13 +9,14 @@ BASE = 'https://if-portal.haw-landshut.de/public/raumplan/ics/de'
 
 def fetch_ics(room):
     for name in [f'SS26_{room}', room, f'SS26_{room}_']:
-        try:
-            url = f'{BASE}/{urllib.parse.quote(name)}.ics'
-            with urllib.request.urlopen(url, timeout=10) as r:
-                if r.status == 200:
-                    return r.read().decode('utf-8', errors='replace')
-        except Exception:
-            pass
+        for _ in range(3):
+            try:
+                with urllib.request.urlopen(f'{BASE}/{urllib.parse.quote(name)}.ics', timeout=10) as r:
+                    if r.status == 200:
+                        return r.read().decode('utf-8', errors='replace')
+                break  # got a response (non-200), no point retrying
+            except Exception:
+                pass
     return None
 
 def parse_dt(s):
@@ -49,8 +50,7 @@ for room in ROOMS:
     if not ics:
         continue
     events = [e for e in parse_ics(ics) if e['end'][:10] >= ws and e['start'][:10] <= we]
-    if events:
-        result[room] = events
+    result[room] = events
 
 os.makedirs('data', exist_ok=True)
 with open('data/events.json', 'w') as f:
