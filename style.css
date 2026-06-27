@@ -160,6 +160,7 @@ main {
 .week-day--today .week-day-label { font-size: .95rem; }
 
 .week-day-header--toggle { cursor: pointer; }
+.week-day:has(.week-day-header--toggle) { cursor: pointer; }
 .week-day-header--toggle:hover .week-day-label { color: var(--haw-light); }
 .week-day-chevron { font-size: .6rem; color: #94a3b8; flex-shrink: 0; display: inline-block; transition: transform .2s; }
 .week-day:not(.week-day--collapsed) .week-day-chevron { transform: rotate(90deg); }

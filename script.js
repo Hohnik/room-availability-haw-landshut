@@ -406,7 +406,7 @@ function renderWeek(events) {
   }).join('');
 
   $('week-view').querySelectorAll('.week-day-header--toggle').forEach(h =>
-    h.addEventListener('click', () => h.closest('.week-day').classList.toggle('week-day--collapsed'))
+    h.closest('.week-day').addEventListener('click', () => h.closest('.week-day').classList.toggle('week-day--collapsed'))
   );
 }
 
