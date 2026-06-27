@@ -12,7 +12,11 @@ def fetch_ics(room):
     for name in [f'SS26_{room}', room, f'SS26_{room}_']:
         for _ in range(3):
             try:
-                with urllib.request.urlopen(f'{BASE}/{urllib.parse.quote(name)}.ics', timeout=10) as r:
+                req = urllib.request.Request(
+                    f'{BASE}/{urllib.parse.quote(name)}.ics',
+                    headers={'User-Agent': 'Mozilla/5.0'},
+                )
+                with urllib.request.urlopen(req, timeout=10) as r:
                     if r.status == 200:
                         return r.read().decode('utf-8', errors='replace')
                 break  # got a response (non-200), no point retrying
