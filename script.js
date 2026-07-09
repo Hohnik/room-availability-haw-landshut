@@ -67,7 +67,7 @@ let preloadedEvents = {};
 const preloadReady = fetch('data/events.json')
   .then(r => r.ok ? r.json() : null)
   .then(d => { if (d?.events) preloadedEvents = d.events; })
-  .catch(() => {});
+  .catch(() => { });
 
 /* ── Shared formatter ──────────────────────────────────────────── */
 const fmtTime = d => d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
@@ -79,7 +79,7 @@ async function fetchRoomEvents(r) {
     return preloadedEvents[r].map(e => ({ ...e, start: new Date(e.start), end: new Date(e.end) }));
   for (const name of [`SS26_${r}`, r, `SS26_${r}_`]) {
     try { return parseICS(await fetchViaProxy(`${PORTAL_BASE}/ics/de/${name}.ics`)); }
-    catch (_) {}
+    catch (_) { }
   }
   return null;
 }
@@ -310,9 +310,10 @@ async function selectRoom(room) {
 
   $('selected-room-label').textContent = room;
   show('availability-section');
-  $('availability-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   await loadAvailability();
+  ($('week-view').querySelector('.week-day--today') ?? $('availability-section')).scrollIntoView({ behavior: 'instant', block: 'end' });
+  window.scrollBy({ top: 6, behavior: 'instant' });
 }
 
 /* ── Load availability ─────────────────────────────────────────── */
@@ -354,6 +355,7 @@ function renderWeek(events) {
     const day = new Date(monday);
     day.setDate(monday.getDate() + i);
     const isToday = day.getTime() === today.getTime();
+    if (day < today) return null;
     const dayEvents = eventsForDay(events, day);
 
     const slots = dayEvents.flatMap(e => {
@@ -383,11 +385,10 @@ function renderWeek(events) {
 
     const active = dayEvents.find(e => e.start <= now && e.end > now);
     const next = dayEvents.find(e => e.start > now);
-    const statusHtml = `<span class="week-status ${active ? 'busy' : 'free'}">${
-      active ? `Belegt bis ${fmtTime(active.end)}`
+    const statusHtml = `<span class="week-status ${active ? 'busy' : 'free'}">${active ? `Belegt bis ${fmtTime(active.end)}`
       : next ? `Frei · nächste ${fmtTime(next.start)}`
-      : 'Frei'
-    }</span>`;
+        : 'Frei'
+      }</span>`;
     const nowMin = (now.getHours() - HOUR_START) * 60 + now.getMinutes() + now.getSeconds() / 60;
     const nowIndicator = nowMin > 0 && nowMin < totalMin
       ? `<div class="time-now" style="left:${pct(nowMin)}%;animation-duration:${Math.round((totalMin - nowMin) * 60)}s"></div>`
@@ -396,14 +397,14 @@ function renderWeek(events) {
     return `
       <div class="week-day week-day--today">
         <div class="week-day-header">
-          <span class="week-day-label">${label}</span>
           ${statusHtml}
+          <span class="week-day-label">${label}</span>
         </div>
         <div class="time-axis">${ticks}</div>
         <div class="timeline-track">${slots}${nowIndicator}</div>
         <p class="week-day-events">${eventsHtml}</p>
       </div>`;
-  }).join('');
+  }).filter(Boolean).join('');
 
   $('week-view').querySelectorAll('.week-day-header--toggle').forEach(h =>
     h.closest('.week-day').addEventListener('click', () => h.closest('.week-day').classList.toggle('week-day--collapsed'))
