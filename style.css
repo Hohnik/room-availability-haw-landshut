@@ -55,6 +55,11 @@ main {
   padding: 1.25rem;
 }
 
+.selector-section,
+.availability-section {
+  scroll-margin-top: 70px;
+}
+
 .favorites-section h2,
 .map-section h2,
 .selector-section h2,

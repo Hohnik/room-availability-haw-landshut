@@ -312,8 +312,7 @@ async function selectRoom(room) {
   show('availability-section');
 
   await loadAvailability();
-  ($('week-view').querySelector('.week-day--today') ?? $('availability-section')).scrollIntoView({ behavior: 'instant', block: 'end' });
-  window.scrollBy({ top: 6, behavior: 'instant' });
+  $('availability-section').scrollIntoView({ behavior: 'instant', block: 'start' });
 }
 
 /* ── Load availability ─────────────────────────────────────────── */
@@ -343,6 +342,8 @@ function renderWeek(events) {
   today.setHours(0, 0, 0, 0);
   const monday = new Date(today);
   monday.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 1));
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  const overmorrow = new Date(today); overmorrow.setDate(today.getDate() + 2);
 
   const totalMin = (HOUR_END - HOUR_START) * 60;
   const pct = min => (min / totalMin * 100).toFixed(2);
@@ -365,7 +366,11 @@ function renderWeek(events) {
       return [`<div class="time-slot busy" style="left:${pct(s)}%;width:${pct(end - s)}%" title="${e.title}"></div>`];
     }).join('');
 
-    const label = day.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
+    const t = day.getTime();
+    const label = t === today.getTime() ? 'Heute'
+      : t === tomorrow.getTime() ? 'Morgen'
+      : t === overmorrow.getTime() ? 'Übermorgen'
+      : day.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
     const eventsHtml = dayEvents.length
       ? dayEvents.map(e => `${fmtTime(e.start)}–${fmtTime(e.end)}`).join(' · ')
       : '<span class="week-no-events">Keine Belegungen</span>';
