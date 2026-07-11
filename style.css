@@ -25,6 +25,7 @@ header {
   color: #fff;
   padding: 1.25rem 1.5rem;
   box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  border-radius: 0 0 1rem 1rem;
 }
 
 .header-inner { max-width: 960px; margin: 0 auto; }
@@ -255,6 +256,7 @@ footer {
   text-align: center;
   padding: 1rem;
   font-size: .78rem;
+  border-radius: 1rem 1rem 0 0;
 }
 footer a { color: rgba(255,255,255,.82); }
 
