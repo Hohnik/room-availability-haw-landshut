@@ -172,9 +172,9 @@ main {
 .week-day-chevron { font-size: .6rem; color: #94a3b8; flex-shrink: 0; display: inline-block; transition: transform .2s; }
 .week-day:not(.week-day--collapsed) .week-day-chevron { transform: rotate(90deg); }
 .week-day--collapsed { padding: .4rem 0; }
-.week-status { font-size: .72rem; font-weight: 600; }
-.week-status.free { color: #166534; }
-.week-status.busy { color: #991b1b; }
+.week-status { font-size: .72rem; font-weight: 600; padding: .2rem .55rem; border-radius: 5px; border: 1.5px solid; }
+.week-status.free { color: #166534; background: #f0fdf4; border-color: #16a34a; }
+.week-status.busy { color: #991b1b; background: #fef2f2; border-color: #dc2626; }
 .week-day-events { font-size: .72rem; color: #64748b; margin-top: .35rem; line-height: 1.6; overflow: hidden; max-height: 5rem; opacity: 1; transition: max-height .25s ease, opacity .2s ease, margin .25s ease; }
 .week-day--collapsed .week-day-events { max-height: 0; opacity: 0; margin-top: 0; }
 .week-no-events { color: #94a3b8; }
@@ -205,13 +205,14 @@ main {
   background: #dcfce7;
   border-radius: 6px;
   overflow: hidden;
-  border: 1px solid #bbf7d0;
-  transition: height .25s ease, border-radius .25s ease;
+  border: 1.5px solid #16a34a;
+  transition: height .25s ease, border-radius .25s ease, background .25s ease;
 }
-.week-day--collapsed .timeline-track { height: 5px; border-radius: 3px; }
+.week-day--collapsed .timeline-track { height: 5px; border-radius: 3px; background: #16a34a; }
 
-.time-slot          { position: absolute; top: 0; bottom: 0; }
+.time-slot          { position: absolute; top: 0; bottom: 0; transition: opacity .25s ease; }
 .time-slot.busy     { background: var(--busy-color); }
+.week-day--collapsed .time-slot { opacity: 0; }
 
 .time-now {
   position: absolute; top: 0; bottom: 0; width: 2px;

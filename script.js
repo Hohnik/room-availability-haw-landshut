@@ -313,7 +313,7 @@ async function selectRoom(room) {
   show('availability-section');
 
   await loadAvailability();
-  $('availability-section').scrollIntoView({ behavior: 'instant', block: 'start' });
+  $('availability-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 /* ── Load availability ─────────────────────────────────────────── */
@@ -370,8 +370,8 @@ function renderWeek(events) {
     const t = day.getTime();
     const label = t === today.getTime() ? 'Heute'
       : t === tomorrow.getTime() ? 'Morgen'
-      : t === overmorrow.getTime() ? 'Übermorgen'
-      : day.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
+        : t === overmorrow.getTime() ? 'Übermorgen'
+          : day.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
     const eventsHtml = dayEvents.length
       ? dayEvents.map(e => `${fmtTime(e.start)}–${fmtTime(e.end)}`).join(' · ')
       : '<span class="week-no-events">Keine Belegungen</span>';
