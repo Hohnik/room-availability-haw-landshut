@@ -150,6 +150,7 @@ main {
   font-weight: 500;
   color: #334155;
   cursor: pointer;
+  user-select: none;
   transition: background .15s, border-color .15s, color .15s, transform .1s;
 }
 .room-btn:hover  { background: var(--haw-accent); border-color: var(--haw-blue); color: var(--haw-blue); transform: translateY(-1px); }

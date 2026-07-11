@@ -243,6 +243,7 @@ function triggerFavorite(btn, r) {
   saveFavorites();
   if (adding) fetchFavoriteStatus(r);
   renderFavorites();
+  if (adding) $('favorites-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
   const heart = Object.assign(document.createElement('span'), { textContent: '♥' });
   heart.style.cssText = `position:fixed;left:${rect.left + rect.width / 2}px;top:${rect.top + rect.height / 2}px;transform:translate(-50%,-50%);font-size:2rem;color:#e11d48;pointer-events:none;z-index:9999;`;
   document.body.appendChild(heart);
