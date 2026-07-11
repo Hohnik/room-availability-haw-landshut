@@ -161,7 +161,7 @@ main {
 /* ── Week view ────────────────────────────────────────────────── */
 .week-day { padding: .75rem 0; border-bottom: 1px solid #f1f5f9; }
 .week-day:last-child { border-bottom: none; }
-.week-day--today { background: #f0f6ff; border-radius: 8px; padding: .75rem .6rem; margin: 0 -.6rem; }
+.week-day--today { background: #f0f6ff; border-radius: 8px; padding: .75rem .6rem; margin: 0 -.6rem; scroll-margin-top: 1rem; }
 .week-day-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .45rem; gap: .5rem; }
 .week-day-label { font-size: .88rem; font-weight: 600; color: var(--haw-blue); }
 .week-day--today .week-day-label { font-size: .95rem; }

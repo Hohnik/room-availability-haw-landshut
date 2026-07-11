@@ -313,7 +313,7 @@ async function selectRoom(room) {
   show('availability-section');
 
   await loadAvailability();
-  $('availability-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  ($('week-view').querySelector('.week-day--today') ?? $('availability-section')).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 /* ── Load availability ─────────────────────────────────────────── */
