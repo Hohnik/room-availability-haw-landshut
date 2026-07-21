@@ -23,5 +23,5 @@ Web-App zur Abfrage der Raumbelegung an der [HAW Landshut](https://www.haw-lands
 ## Hinweise
 
 - **Kein Build-Step** — reines HTML/CSS/JS, lokal mit `python -m http.server` oder `npx serve` startbar.
-- **Räume hinzufügen** — `ROOMS` in `script.js` ergänzen; der GitHub Action liest die Liste automatisch daraus.
+- **Räume hinzufügen** — `ROOMS` in `script.js` ergänzen; die GitHub Action liest die Liste automatisch daraus.
 - **Polygone anpassen** — `annotate.html` öffnen, Polygon per Klick zeichnen, Code in `script.js` einfügen.
